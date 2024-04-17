@@ -2,25 +2,105 @@
 title: "Daley-Homework-5"
 author: "Drue Daley"
 format: html
+editor_options: 
+  chunk_output_type: inline
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
 ```{r}
-1 + 1
+#| warning: false
+library(tidyverse)
+library(gt)
+library(kableExtra)
 ```
 
-You can add options to executable code like this 
 
+## Prediction in the Maze
+
+The maze study examines incremental processing through a slow reading task in which sentences are presented one word at time, with two possible words serving as options for participants to continue the sentence. Only one of the two words continues the sentence with the intended meaning, while the other serves as a distractor. The study measures response time for each word of sentences generated and shown by the new auto-maze (A-maze) mode of presenting this test, making the maze task cheaper and easier to use. This study used an A-maze tasks on high cloze probability sentence contexts that were manipulated in their noun predictability and their preceding articles.
+
+The hypothesis of this study was that the maze task could be used in order to more accurately study the predictive processes we experience when reading sentences, specifically in the realm of 'a'/'an' use. Specifically, in this A-maze, response times may isolate prediction error effects on mismatching article forms before unexpected nouns. They expected to see more clear conclusions on predictive processes in this study, compared to previous ones.
+
+Sample sentences from the study include the Expected condition of "The highlight of Jack’s trip to India was when he got to ride an elephant in the parade.", the Unexpected condition of "The highlight of Jack’s trip to India was when he got to ride a bicycle in the parade.", and the corresponding distractor words "x-x-x subjected wish Nuclei tons cent Ratio boys file miss skin mean inch lie extends pm knew trends."
+
+## Codebook/Data Dictionary
+
+These are the variables in the raw data.
+  Index = Results index? (assigned per participant)
+  Time = Time when trial was conducted
+  Counter = Counter? (assigned per participant)
+  Hash = Hash? (assigned per participant)
+  Owner = Logged in as experiment owner?
+  Controller = Methodology names (Form, Maze, Question)
+  Item = Item number, in reference to question/task
+  Element = Element number (1 = question)
+  Type = Type of task
+  Group = Group of task/question
+  FieldName = Form question names
+  Value = Answers to form questions
+  WordNum = Order number of word in sentence (0 = first)
+  Word = Target word
+  Alt = Alternative word
+  WordOn = Side to which word was presented
+  CorrWord = Was the correct word chosen?
+  RT = Reading time to first answer
+  Sentence = Target sentence
+  Total Time = Total time to correct answer
+  Question = Question asked
+  Resp = Response to question
+  Acc = Was the response correct?
+  RespRT = Time taken to answer
+
+## Importing Data
+The df_rt dataframe is used for analysis without the need for the form answers.
 ```{r}
-#| echo: false
-2 * 2
+here::i_am("osfstorage-archive (1)/analysis/Daley-Homework-5.qmd")
+library(here)
+d <- read.csv(here("osfstorage-archive (1)/data/delong maze 40Ss.csv"),
+              header = 1, sep = ",", comment.char = "#", strip.white = T, col.names = c("Index", "Time", "Counter", "Hash", "Owner", "Controller", "Item", "Element", "Type", "Group", "FieldName", "Value", "WordNum", "Word", "Alt", "WordOn", "CorrWord", "RT", "Sentence","TotalTime","Question","Resp","Acc","RespRT"))
+
+df_rt <- d |> 
+  filter(Controller == "Maze" & !str_detect(Type, "prac")) |> 
+  select(1:10, 13:20) |> 
+  separate(col = Type, 
+           into = c("exp", "item", "expect", "position", "pos", 
+                    "cloze", "art.cloze", "n.cloze"), 
+           sep = "\\.", convert = TRUE, fill = "right") |> 
+  mutate(WordNum = as.numeric(WordNum),
+         Acc = as.numeric(as.character(recode(CorrWord, yes = "1", no = "0"))),
+         n.cloze.scale =  scale(n.cloze), 
+         art.cloze.scale = scale(art.cloze)) |> 
+  mutate(across(where(is.character), as.factor)) |> 
+  filter(item != 29) |> 
+  filter(Hash != "9dAvrH0+R6a0U5adPzZSyA")
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+## Mutating Data
+```{r}
+d <- d |>
+  filter(Item != 29) |>
+  filter(Hash != "9dAvrH0+R6a0U5adPzZSyA")
+```
+
+## Notes on Participants & Data
+
+Originally, the study had 40 participants, all native UK English speakers. However, the data only shows `r length(unique(d$Hash))` participants. This is due to one participant's results not transferring and another participant's accuracy being at 52% while all others were >70%, thus leaving 38 participants for the initial analysis. These participants are of varying ages, as seen in this table, which could perhaps have an impact on response time. `r d |> filter(FieldName == "age") |>  mutate(Value = as.numeric(Value)) |> summarize(MeanAge = mean(Value), MinAge = min(Value), MaxAge = max(Value), SDAge = sd(Value)) |> kbl() |> kable_styling()`
+
+Additionally, the initial trials consisted of 80 items; but item 29 must be removed due to incorrect noun pairing. After excluding each of these from the data, `r length(d$Hash)` rows of data remain for analysis.
+
+## Analysis
+
+I have no idea how to even get close to recreating Figure 1 unless I copied and pasted the entire analysis from the original author into this report. This is what I managed
+```{r}
+# rgn.label <- c("CW-3","CW-3","CW-2","CW-2","CW-1","CW-1","art","art","n","n","CW+1","CW+1","CW+2","CW+2","CW+3","CW+3")
+# df_rt <- cbind(rgn.label, df_rt)
+
+# rt.all.g <- ggplot(df_rt, aes(x=rgn.label, y= RT, group=expect, shape=expect)) +
+#  geom_line(stat = "identity", position=position_dodge(width=.3)) +
+#  geom_point(stat = "identity", position=position_dodge(width=.3)) +
+#  geom_errorbar(aes(ymin = Lower.adj, ymax = Upper.adj), width=.15, position=position_dodge(width=.3)) +
+#  scale_shape_manual(name = "", labels = c("Expected", "Unexpected"), values = c(21,19)) + 
+#  xlab("Word") + ylab("Response Time (msec)") +
+#  theme_bw(base_size=12)+ theme(legend.text=element_text(size=10))
+# rt.all.g
+```
+
